@@ -1,0 +1,24 @@
+{
+  "name": "rarchiver",
+  "version": "1.0.0",
+  "description": "reddit archiver is a nodejs application which uses mongodb for storing data which get from reddit api.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start" : "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.5.1",
+    "compression": "^1.7.4",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "http-status": "^1.7.3",
+    "mongodb": "^6.2.0",
+    "morgan": "^1.10.0",
+    "response-time": "^2.3.2"
+  }
+}
