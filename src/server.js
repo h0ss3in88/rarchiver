@@ -8,7 +8,6 @@ import axios from "axios"
 const initApp = function({accessToken,db}) {
     return new Promise(async (resolve, reject) => {
         try {
-            console.log(accessToken);
             const oauthUrl = process.env.REDDIT_OAUTH_URL;
             let app = express();
             app.use(logger("dev"));
@@ -26,6 +25,52 @@ const initApp = function({accessToken,db}) {
             });
             app.get('/', (req,res) => {
                 return res.status(httpStatus.OK).json({"message" : "welcome"});
+            });
+            app.get('/reddit/search/posts/:searchTerm', async (req,res,next) => {
+                try {
+                    const searchTerm = req.params.searchTerm;
+                    const baseUrl = `https://www.reddit.com/`;
+                    const url = `search.json`;
+                    const option = {
+                        method: "GET",
+                        baseURL: baseUrl,
+                        url: url,
+                        params : {
+                            'q': searchTerm, 'limit': 300, 'sort': 'new'
+                        },
+                    };
+                    if(process.env.PROXY) {
+                        Object.defineProperty(option,'proxy', {
+                            configurable: true,
+                            enumerable: true,
+                            writable:true,
+                            value:{
+                                protocol: process.env.PROXY_PROTOCOL,
+                                host: process.env.PROXY_HOST,
+                                port : process.env.PROXY_PORT
+                            }
+                        });
+                    }
+                    const response = await axios(option);
+                    if(response.status === 200) {
+                        const searchResult = response.data.data.children.map(d => {
+                            return d.data;
+                        });
+                        const insertionResult = await req.db.collection("posts").insertMany(searchResult);
+                        const searchHistoryInsertionResult = await req.db.collection("search_history").insertOne({
+                            search : searchTerm,
+                            created_at : Date.now(),
+                            result : searchResult.length,
+                            search_ids : Object.values(insertionResult.insertedIds)
+                        });
+                        return res.status(httpStatus.OK).json({searchHistoryInsertionResult, dbResult: insertionResult, body : searchResult});
+                    }else {
+                        return next(new Error(`invalid request ${response.status}`));
+                    }
+                }catch(err) {
+                    return next(err);
+                }
+
             });
             app.get('/reddit/me/info', async (req,res,next) => {
                 try {
@@ -137,7 +182,12 @@ const initApp = function({accessToken,db}) {
                             return d.data;
                         });
                         const insertionResult = await req.db.collection("searches").insertMany(searchResult);
-                        
+                        // await req.db.collection("search_history").insert({
+                        //     search : searchTerm,
+                        //     created_at : new Date.now(),
+                        //     result : searchResult.length,
+                        //     search_ids : insertionResult.insertedIds
+                        // });
                         return res.status(httpStatus.OK).json({dbResult: insertionResult, body : searchResult});
                     }else {
                         return next(new Error(`invalid request ${response.status}`));
@@ -146,6 +196,25 @@ const initApp = function({accessToken,db}) {
                     return next(err);
                 }
             });
+            app.delete("/reddit/search/history", async (req,res,next) => {
+                try {
+                    const {historyOptions} = req.body;
+                    if(historyOptions.drop) {
+                        const deletionResult = await req.db.collection("search_history").drop({
+                            writeConcern : true
+                        });
+                        return res.status(200).json({ ack : deletionResult});
+                    }else {
+                        const {ids} = req.body;
+                        const deletionResult = await req.db.collection("search_history").deleteMany({ "_id" : {
+                            "$in" : ids
+                        }});
+                        return res.status(200).json({ ack: deletionResult});
+                    }
+                } catch (error) {
+                    return next(error);
+                }
+            })
             app.use((req,res,next) => {
                 let error = new Error("NOT FOUND!");
                 error.status = 404;
