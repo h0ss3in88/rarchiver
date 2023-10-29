@@ -29,22 +29,31 @@ const initApp = function({accessToken,db}) {
             });
             app.get('/reddit/me/info', async (req,res,next) => {
                 try {
-                    const response = await axios({
+                    const option = {
                         method: "GET",
                         baseURL: oauthUrl,
                         url : `api/v1/me`,
-                        proxy: {
-                            protocol: "http",
-                            host: "127.0.0.1",
-                            port : 8580
-                        },
                         headers : {
                             "Authorization" : `Bearer ${accessToken}`,
                             "User-Agent": `${process.env.REDDIT_APP_NAME} by ${process.env.REDDIT_USER_NAME}` 
                         }
-                    });
+                    }
+                    if(process.env.PROXY) {
+                        Object.defineProperty(option,'proxy', {
+                            configurable: true,
+                            enumerable: true,
+                            writable:true,
+                            value:{
+                                protocol: process.env.PROXY_PROTOCOL,
+                                host: process.env.PROXY_HOST,
+                                port : process.env.PROXY_PORT
+                            }
+                        });
+                    }
+                    const response = await axios(option);
                     if(response.status === 200) {
-                        return res.status(httpStatus.OK).json({accessToken, body : response.data});
+                        const result = await req.db.collection('admin').insertOne(response.data);
+                        return res.status(httpStatus.OK).json({dbResult : result, body : response.data});
                     }else {
                         return next(new Error(`invalid request ${response.status}`));
                     }
@@ -57,25 +66,37 @@ const initApp = function({accessToken,db}) {
             app.get("/reddit/search/user/:user", async (req,res,next) => {
                 try {
                     const userSearch = req.params.user;
-                    const response = await axios({
+                    const option = {
                         method: "GET",
                         baseURL: oauthUrl,
                         url : `/users/search`,
-                        proxy: {
-                            protocol: "http",
-                            host: "127.0.0.1",
-                            port : 8580
-                        },
                         params : {
-                            'q': userSearch, 'limit': 5, 'sort': 'relevance'
+                            'q': userSearch, 'limit': 150, 'sort': 'relevance'
                         },
                         headers : {
                             "Authorization" : `Bearer ${accessToken}`,
                             "User-Agent": `${process.env.REDDIT_APP_NAME} by ${process.env.REDDIT_USER_NAME}` 
                         }
-                    });
+                    };
+                    if(process.env.PROXY) {
+                        Object.defineProperty(option,'proxy', {
+                            configurable: true,
+                            enumerable: true,
+                            writable:true,
+                            value:{
+                                protocol: process.env.PROXY_PROTOCOL,
+                                host: process.env.PROXY_HOST,
+                                port : process.env.PROXY_PORT
+                            }
+                        });
+                    }
+                    const response = await axios(option);
                     if(response.status === 200) {
-                        return res.status(httpStatus.OK).json({body : response.data});
+                        const users = response.data.data.children.map(d => {
+                            return d.data;
+                        });
+                        const insertionResult = await req.db.collection("users").insertMany(users);
+                        return res.status(httpStatus.OK).json({dbResult : insertionResult, body : users});
                     }else {
                         return next(new Error(`invalid request ${response.status}`));
                     }
@@ -86,25 +107,38 @@ const initApp = function({accessToken,db}) {
             app.get("/reddit/search/:searchTerm", async (req,res,next) => {
                 try {
                     const searchTerm = req.params.searchTerm;
-                    const response = await axios({
+                    const option = {
                         method: "GET",
                         baseURL: oauthUrl,
                         url : `subreddits/search`,
                         params : {
-                            'q': searchTerm, 'limit': 1, 'sort': 'relevance'
-                        },
-                        proxy: {
-                            protocol: "http",
-                            host: "127.0.0.1",
-                            port : 8580
+                            'q': searchTerm, 'limit': 300, 'sort': 'relevance'
                         },
                         headers : {
                             "Authorization" : `Bearer ${accessToken}`,
                             "User-Agent": `${process.env.REDDIT_APP_NAME} by ${process.env.REDDIT_USER_NAME}` 
                         }
-                    });
+                    };
+                    if(process.env.PROXY) {
+                        Object.defineProperty(option,'proxy', {
+                            configurable: true,
+                            enumerable: true,
+                            writable:true,
+                            value:{
+                                protocol: process.env.PROXY_PROTOCOL,
+                                host: process.env.PROXY_HOST,
+                                port : process.env.PROXY_PORT
+                            }
+                        });
+                    }
+                    const response = await axios(option);
                     if(response.status === 200) {
-                        return res.status(httpStatus.OK).json({body : response.data});
+                        const searchResult = response.data.data.children.map(d => {
+                            return d.data;
+                        });
+                        const insertionResult = await req.db.collection("searches").insertMany(searchResult);
+                        
+                        return res.status(httpStatus.OK).json({dbResult: insertionResult, body : searchResult});
                     }else {
                         return next(new Error(`invalid request ${response.status}`));
                     }
