@@ -17,16 +17,10 @@ const getRedditAccessToken = () => {
     return new Promise(async (resolve, reject) => {
         try {
             const baseUrl = process.env.REDDIT_BASE_URL;
-            const response = await axios({ 
+            const options = {
                 method: "POST",
                 baseURL: baseUrl,
                 url: "api/v1/access_token",
-                proxy: {
-                    protocol: "http",
-                    host: "127.0.0.1",
-                    port : 8580
-                },
-                
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                     "user-agent": `${process.env.REDDIT_APP_NAME} by ${process.env.REDDIT_USER_NAME}` 
@@ -36,7 +30,20 @@ const getRedditAccessToken = () => {
                     username:process.env.REDDIT_APP_ID,
                     password: process.env.REDDIT_APP_SECRET
                 }
-            });
+            };
+            if(process.env.PROXY) {
+                Object.defineProperty(options, "proxy",{
+                    configurable: true,
+                    enumerable: true,
+                    writable: true,
+                    value : {
+                        protocol : process.env.PROXY_PROTOCOL,
+                        host: process.env.PROXY_HOST,
+                        port: process.env.PROXY_PORT
+                    }
+                })
+            }
+            const response = await axios(options);
             if(response.status === 200) {
                 const token = response.data["access_token"];
                 const tokenType = response.data["token_type"];
