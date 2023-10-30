@@ -1,0 +1,56 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Archiver</title>
+</head>
+<body>
+    <div id="main">
+        <article>
+            <header><h3>In DataBase</h3></header>
+            <div id="collections">
+
+            </div>
+            <div id="content">
+
+            </div>
+        </article>
+    </div>
+    <script src="/public/jquery/dist/jquery.js"></script>
+    <script type="text/javascript">
+        $(function() {
+            const url = "/api/db/list/collections";
+            fetch(url, {
+                method: "GET",
+                headers : {
+                    "Content-Type" : "/application/json",
+                }
+            }).then(response => response.json())
+            .then(async value => {
+                let $ul = $('<ul>');
+                for await (let item of value.listOfCollections) {
+                    const urlForCollection = `/api/db/collections/count/${item.name}`;
+                    fetch(urlForCollection,{method: "GET"})
+                        .then(response => response.json())
+                        .then(val => {
+                            console.log(val);
+                            let $a = $('<a>').attr({
+                                "href" : "#",
+                                "id" : item.name
+                            });
+                            $a.text(`${item.name}-${val.collectionCount}`);
+                            const newLi = $("<li>").append($a);
+                            $ul.append(newLi);
+                            $("#collections").append($ul);
+                        }).catch(err => console.log(err));
+                }
+            })
+            .catch(err => console.error(err));
+            $("#collections").on("click","a", (e) => {
+                e.preventDefault();
+                console.log(e.target.id);
+            });
+        });
+    </script>
+</body>
+</html>
