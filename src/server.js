@@ -3,6 +3,9 @@ import logger from "morgan"
 import responseTime from "response-time"
 import compression from "compression"
 import httpStatus from "http-status"
+import favicon from "serve-favicon"
+import path from "node:path"
+import {fileURLToPath} from "node:url"
 import axios from "axios"
 
 const initApp = function({accessToken,db}) {
@@ -11,8 +14,14 @@ const initApp = function({accessToken,db}) {
             const oauthUrl = process.env.REDDIT_OAUTH_URL;
             let app = express();
             app.use(logger("dev"));
+            // there is no __dirname and __filename in es module type unlike commonjs in nodejs 
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = path.dirname(__filename);
+            app.use(favicon(path.resolve(__dirname,"../", "favicon.ico")));
+            app.use(express.json());
             app.use(compression());
             app.use(responseTime());
+
             app.set("PORT", process.env.APPLICATION_PORT || 3122);
             app.use((req,res,next) => {
                 Object.defineProperty(req,"db",{
