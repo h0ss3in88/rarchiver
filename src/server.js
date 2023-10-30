@@ -18,6 +18,7 @@ const initApp = function({accessToken,db}) {
             const __filename = fileURLToPath(import.meta.url);
             const __dirname = path.dirname(__filename);
             app.use(favicon(path.resolve(__dirname,"../", "favicon.ico")));
+            app.use("/public", express.static(path.resolve(__dirname, "../node_modules")));
             app.use(express.json());
             app.use(compression());
             app.use(responseTime());
@@ -33,7 +34,39 @@ const initApp = function({accessToken,db}) {
                 return next();
             });
             app.get('/', (req,res) => {
-                return res.status(httpStatus.OK).json({"message" : "welcome"});
+                return res.status(httpStatus.OK).sendFile(path.resolve(__dirname, "./public","index.html"));
+            });
+            app.get('/api/db/collections/:collectionName/:pageNumber/:limit', async (req,res,next) => {
+                try {
+                    const {collectionName,pageNumber,limit} = req.params;
+                    if(pageNumber === null || pageNumber === undefined) {
+                        pageNumber = 1;
+                    }
+                    if(limit === null || limit === undefined) {
+                        limit = 10;
+                    }
+                    const result = await req.db.collection(collectionName).find().skip((pageNumber - 1 )* limit).limit(limit).toArray();
+                    return res.status(httpStatus.OK).json({result});
+                }catch(err) {
+                    return next(err);
+                }
+            });
+            app.get('/api/db/collections/count/:collectionName', async (req,res,next) => {
+                try {
+                    const {collectionName} = req.params;
+                    const collectionCount = await req.db.collection(collectionName).countDocuments();
+                    return res.status(httpStatus.OK).json({collectionCount});
+                }catch(err) {
+                    return next(err);
+                }
+            });
+            app.get('/api/db/list/collections', async(req,res,next) => {
+                try {
+                    const listOfCollections = await req.db.listCollections().toArray();
+                    return res.status(httpStatus.OK).json({listOfCollections});
+                }catch(err) {
+                    return next(err);
+                }
             });
             app.get('/reddit/search/comments/:postId/:permaLink', async (req,res,next) => {
                 try {
